@@ -1,0 +1,74 @@
+ <cfcomponent> 
+<cfset THIS.name = "CCDOAAdmin"> 
+<cfset THIS.Sessionmanagement="True"> 
+<cfset THIS.ApplicationTimeout = CreateTimeSpan( 7, 0, 0, 0 ) />
+<cfset THIS.SessionTimeout = CreateTimeSpan( 7, 0, 0, 0 ) />
+<cfset THIS.loginstorage="session">
+ 
+<cffunction name="OnRequestStart">
+
+    <cfargument name = "request" required="true"/> 
+
+    <cfif IsDefined("url.logout")> 
+        <cflogout>
+    </cfif> 
+
+    <cfscript>
+        application.dateformat = 'mm/dd/yy';
+        application.dateformat_long = 'mm/dd/yyyy';
+        application.timeformat = 'HH:mm';
+ 
+        setLocale("English (US)");
+    </cfscript>
+ 
+    <cflogin> 
+        <cfif NOT IsDefined("cflogin")> 
+<!---            <cfinclude template="login.cfm">  --->
+            <cfabort> 
+        <cfelse> 
+            <cfif cflogin.name IS "" OR cflogin.password IS ""> 
+                <cfoutput> 
+                    <h2>You must enter text in both the User Name and Password fields. 
+                    </h2> 
+                </cfoutput> 
+                <cfinclude template="login.cfm"> 
+                <cfabort> 
+            <cfelse>
+                <!--- SHA1 (Apache) Hash --->
+                <cfset hash = "{SHA}" & ToBase64(BinaryDecode(Hash(cflogin.password, "SHA1"), "Hex"))>
+
+                <cfquery name="loginQuery" dataSource="CCDOA"> 
+                    SELECT username from users
+                    WHERE 
+                        username = '#cflogin.name#' 
+                        AND hash = '#hash#'
+                </cfquery> 
+                <cfif len(loginQuery.username)>
+                    <cfloginuser name="#cflogin.name#" Password = "#cflogin.password#" 
+                        roles="">
+					<cfquery name="loginQuery" dataSource="CCDOA"> 
+                        Update users set LastLogin = getdate()
+                        WHERE username = '#cflogin.name#' 
+					</cfquery>
+                     <cfquery datasource="CCDOA" name="theUser">
+                        SELECT id,username,first_name,last_name,email,admin from users
+                        where username = '#cflogin.name#'
+                      </cfquery>
+                  
+                      <cfcookie name="user_id" value="#theUser.id#"></cfcookie>
+                      <cfcookie name="username" value="#theUser.username#"></cfcookie>
+                      <cfcookie name="admin" value="#theUser.admin#"></cfcookie>
+                <cfelse> 
+                    <cfoutput> 
+                        <H2>Your login information is not valid.<br> 
+                        Please Try again</H2> 
+                    </cfoutput>     
+                    <cfinclude template="login.cfm"> 
+                    <cfabort> 
+                </cfif> 
+            </cfif>     
+        </cfif> 
+    </cflogin> 
+ 
+</cffunction> 
+</cfcomponent>
